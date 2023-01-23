@@ -1,0 +1,219 @@
+---
+title: "Exercise basic_vector_Raster"
+author: "Katherin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+***#First video - basics***
+
+***## Exercises for data type***
+
+```{r Exercises}
+
+## Why do not the following lines of code work? Tweak each one so the code runs
+
+# myList["fruit"]
+  myList["fruit"]
+
+# penguins$flipper_length_mm
+  penguins$flipper_length_mm
+  
+# penguins[island=='Dream',]
+penguins[penguins$island=='Dream',]
+
+
+```
+
+```{r Exercise 2}
+## How many species are in the penguin data set? What islands were the data collected for? 
+str(penguins$species)
+unique(penguins$species)
+# there are 3 species, and it can be obtained with str and unique
+
+unique(penguins$island)
+#to compare the species diversity by island
+
+```
+
+```{r Exercise 3}
+## Use indexing to create a new data frame that has only 3 columns: species, island and flipper lenght colums, and subset all rows for just the " Dream" island.
+str(penguins)
+penguins[penguins$island=='Dream',c("species","island", "flipper_length_mm")]
+
+```
+
+```{r Exercise 4}
+## Using indexing and the mean() function to find 
+penguins[penguins$island=='Dream'& penguins$species=='Adelie',"flipper_length_mm"] # step 1
+
+penguins[penguins$island=='Dream'& penguins$species=='Adelie',"flipper_length_mm"]%>%
+  summarise(mean(flipper_length_mm)) #step 2
+# mean is 190
+
+```
+
+***#Excercises for dplyr***
+
+```{r Exercise 1}
+##Reorder the variable in penguins so that year is the first column followed by the rest (Hint: lookt into the use of everything())
+
+penguins%>%select(year, everything())
+
+```
+
+```{r Exercise 2}
+#Create a new column called 'size_group' where individuals with body mass grater than the overall average are called 'large' and those smaler are called 'small'
+str(penguins)
+
+penguins%>%
+  summarise(mean_bodymas=mean(body_mass_g, na.rm=TRUE))
+#average = 4202
+
+new_column<-penguins%>%
+  mutate(zise_group = if_else(body_mass_g>4202,'large', 'small'))
+new_column
+
+```
+
+```{r Exercise 3}
+
+#Find out which year for each species were individuals on arevage the largest according to body mass
+
+penguins%>%
+  group_by(year,species)%>%
+   summarise(body_size=mean(body_mass_g, na.rm= TRUE))%>%
+  arrange(desc(body_size))
+  
+# Gentoo has the larges body mass across years
+
+```
+
+```{r Exercise 4}
+
+#You want to filter data for years that are not in a vector of given years, but this code does not work. Tweak it so that it does.
+
+penguins %>% 
+  filter(year != c(2008, 2009))
+
+```
+
+***#Exercises for visualize***
+
+```{r Exercise 1}
+# Make a barplot showing the average flipper length for each species
+str(penguins)
+
+ggplot(penguins, aes(x = species, y= flipper_length_mm, fill=species))+
+  geom_bar(position = "dodge", stat= "summary",fun="mean")
+
+# Using summary
+summarise_penguins<-penguins%>%
+  group_by(species)%>%
+  summarise(mean_flipper_length=mean(flipper_length_mm, na.rm=TRUE))
+summarise_penguins
+
+ggplot(summarise_penguins, aes(x = species, y= mean_flipper_length, fill=species))+
+  geom_bar(position = "dodge", stat="identity")
+```
+
+```{r Exercise 2}
+#Make an scatter plot of bill length compared to bill depth but only observation on the Dream island
+str(penguins)
+filter_dream<- penguins%>%
+  select(island,bill_length_mm,bill_depth_mm)%>%
+   filter(island == "Dream")
+filter_dream
+
+ggplot(filter_dream, aes(y=bill_length_mm, x=bill_depth_mm, fill=island))+
+  geom_point()
+    
+```
+
+***#Second video***
+
+***##Spatial data format***
+
+```{r  Week 1 - exercise 1}
+source("Setup.R")
+# 1. Filter out the counties data set to only include Larimer, Denver, and Pueblo counties.
+
+counties%>%filter(NAME%in% c("Larimer","Denver","Pueblo"))
+
+counties%>%filter(NAME == "Larimer"| NAME == "Denver"| NAME == "Pueblo")
+```
+
+```{r  Week 1 - exercise 2}
+# 2. Make a map of the counties data colored by county area. Make a second map of counties colored by their total area of water.
+
+ counties_exercise <- counties(state = "CO")
+
+tmap_mode(mode = c("view", "plot"))
+
+tm_shape(counties_exercise) +
+tm_polygons("ALAND") #we can also use col= 
+
+tm_shape(counties_exercise)+
+tm_polygons("AWATER")
+
+```
+
+```{r Week 1 - exercise 3 }
+#Make a barplot compering the elevation of your points in the Poudre Canyon (note: explore the extract() function in the terra package)
+
+roads_exercise<-roads(state = "CO", county = "Larimer")
+roads_exercise
+counties_ex<-counties()
+str(roads_exercise)
+
+#step1
+roads_exercise%>%
+  filter(str_detect(FULLNAME, "Poudre")) ##str_detect, is used to detect the presence or absence of a match
+#step2
+roads_exercise%>%
+  filter(FULLNAME == "Poudre Canyon Hwy")
+
+View(roads_exercise)
+
+#step3 : dataframe converting to shape object 
+
+  #first approach
+poudre_canyon_points <- data.frame(name = c("Poudre Canyon Hwy_1", "Poudre Canyon Hwy_2", "Poudre Canyon Hwy_3", "Poudre Canyon Hwy_4"),
+                            long = c(-105.5418, -105.2452, -105.2347, -105.8922),
+                            lat = c(40.73, 40.69, 40.70, 40.52))
+#converting to sf object
+poudre_canyon_points_sf<-st_as_sf(poudre_canyon_points,coords = c("long", "lat"), crs = 4326)
+
+qtm(roads_exercise)
+qtm(poudre_canyon_points_sf)
+
+elevation_road<-get_elev_point(poudre_canyon_points_sf)
+str(elevation_road)
+
+       #second approach
+         prj_dd <- "EPSG:4326"
+          examp_sp <- SpatialPoints(poudre_canyon_points, proj4string = CRS(prj_dd))
+
+              qtm(roads_exercise)
+              qtm(examp_sp)
+
+                  elevation_road<-get_elev_point(examp_sp)
+                    elevation_road<-get_elev_point(poudre_canyon_points_sf, prj=prj_dd)
+
+#Making a bar graph
+
+p<-elevation_road%>%
+select(name, elevation)
+p
+  
+  ggplot(p, aes(x = name, y = elevation))+
+geom_bar(position = "dodge", stat= "summary",fun="mean")
+
+```
+
+```{r exercise 3}
+#Why are there 4 features in our Poudre Highway variable insted of 1?
+
+# Because it is a representation of the counter lines, and maybe it can be used to estimate the slope of the Canyon.
+```
+

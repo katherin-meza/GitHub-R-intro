@@ -1,0 +1,187 @@
+---
+title: "R basic"
+author: "Katherin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r}
+source("Setup.R")
+```
+
+```{r Data type}
+data("penguins")
+penguins
+class(penguins)
+class(penguins$species)
+class(penguins$flipper_length_mm)
+str(penguins)
+str(penguins$species) # example of 1 dimensional vector that only represent a single data type. We can not have a vector of both number and characters. A list can have more then one data type.
+myList<-list("apple", 1993, FALSE, penguins)
+str(myList)
+
+# Nesting list
+list(myList, list("more styuff here", list("and more")))
+#name() to retrieve or assign names to list and vector elements
+names(myList)<- c("fruit", "year","logic","data")
+
+# 6.3 when we look at the data type of individual columns
+# index list
+myList[[1]]
+myList[["data"]]
+
+#index vector
+myVector<- c("apple","banana","pear")
+myVector[2]
+
+# Index data frame
+  #dataframe[row(s),columns()]
+
+penguins[1:2, 2]
+penguins[5:8,"species"]
+penguins[1,3:4]
+penguins[1:5,c("species","sex")]
+penguins[penguins$sex=='female',]
+
+
+
+```
+
+```{r}
+### Subset rows with filter
+filter(penguins, species =="Adelie")
+filter(penguins, species !="Adelie")
+filter(penguins, island %in% c("Dream", "Torgersen") & !is.na(bill_length_mm))
+str(penguins)
+
+```
+
+```{r}
+## Using select
+select(penguins, species,sex)
+select(penguins, species:flipper_length_mm)
+select(penguins, genus = species, island)
+select(penguins, contains("mm"))
+```
+
+```{r}
+## Using mutate
+mutate(penguins, bill_lengh_cm =bill_length_mm/10)
+mutate(penguins, species_sex = if_else(sex =='male', paste0(species,"_m"), paste0(species,"_f")))
+
+#paste(), will concatenaed element
+#paste0(), will add extra words to the current column names
+```
+
+```{r}
+# Using group_by and summaries pipe = = %>%
+str(penguins)
+df1<- filter(penguins, island == "Dream")
+df2<- mutate(df1, flipper_length_cm = flipper_length_mm/10)
+df3<-select(df2, species, year, flipper_length_cm)
+df3
+
+# another approach
+penguin_new<-penguins%>%
+  filter(island =="Dream")%>%
+  mutate(flipper_length_cm = flipper_length_mm/10)%>%
+  select(species, year, flipper_length_cm)
+penguin_new
+
+# body mass by each species
+penguins%>%
+  group_by(species)%>%
+  summarise(body_mass_aveg = mean(body_mass_g, na.rm = TRUE))
+##na.rm is used to excluded missing values
+##relocate colums
+
+penguins%>%select(last_col())
+penguins%>%relocate(year,.before = island) ###.after = 
+
+```
+
+```{r}
+penguins%>%
+  group_by(species,year)%>%
+  summarise(n_observations = n())
+### = n() helps you to know how many counts or the "n"
+
+```
+
+
+```{r}
+#Exercises 1
+myList["fruit"]
+
+penguins$flipper_length_mm
+
+penguins[island=='Dream',] # does not work
+penguins[penguins$island=='Dream',]
+
+#Exercise 2
+str(penguins$species)
+unique(penguins$species)
+# 3
+unique(penguins$island)
+#to know how the diversity of species by island
+
+#Exercise 3
+str(penguins)
+penguins[penguins$island=='Dream',c("species","island", "flipper_length_mm")]
+#Exercise 4
+penguins[c(penguins$island=='Dream',penguins$species=='Adelie'),"flipper_length_mm"]
+
+penguins%>%
+  filter(species=="Adelie", island=="Dream")%>%
+  filter(!is.na(flipper_length_mm))%>%
+    select(flipper_length_mm)%>%
+   summarise(mean(flipper_length_mm))
+
+view(penguins%>%
+  filter(species=="Adelie", island=="Dream")%>%
+  filter(!is.na(flipper_length_mm))%>%
+    select(flipper_length_mm))
+
+```
+
+```{r dplyr}
+filter(penguins, species == "Adelie") #equal
+
+filter(penguins, species != "Adelie") #no equal
+
+filter(penguins, island %in% c("Dream", "Torgersen") & !is.na(bill_length_mm))
+
+
+mutate(penguins, species_sex = if_else(sex == 'male', paste0(species,"_m"), paste0(species, "_f")))
+str(mutate(penguins, species_sex = if_else(sex == 'male', paste0(species,"_m"), paste0(species, "_f")))
+)
+
+```
+
+```{r Visualize}
+#histogram
+ggplot(penguins)+
+  geom_histogram(aes(x=flipper_length_mm, fill=species),alpha = 0.5, position = "identity")+
+  scale_fill_manual(values = c("darkorange","darkorchid","cyan4"))
+
+ggplot(penguins)+
+    geom_histogram(aes(x = flipper_length_mm, fill = species), alpha = 0.5, position = "identity") +
+  scale_fill_manual(values = c("darkorange","darkorchid","cyan4")) +
+  facet_wrap(~species)
+#If it is stat = "identity", we are asking R to use the y-value we provide for the dependent variable.
+#alfa: Values of alpha range from 0 to 1, with lower values corresponding to more transparent colors
+
+#barplot
+ggplot(penguins, aes(x=island, fill= species))+
+  geom_bar(alpha = 0.8)+ 
+  scale_fill_manual(values = c("darkorange","darkorchid","cyan4"),guide=FALSE)+
+  theme_minimal()+
+  facet_wrap(~species, ncol = 1)+
+  coord_flip()
+
+ggplot(penguins)+
+geom_point(mapping =aes(x=body_mass_g,y=flipper_length_mm, color=species))
+
+#stat = identityy: you’re telling R to calculate the sum of the y variable, grouped by the x variable and use bars to display the sums.
+
+```

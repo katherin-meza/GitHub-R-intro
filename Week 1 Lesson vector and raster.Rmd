@@ -1,0 +1,176 @@
+---
+title: "Week 1 lesson vector and raster"
+author: "Katherin"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Second video about spatial data
+```{r Spatial data format}
+source("Setup.R")
+###Vector data####
+#point = location, for example coordinates, address, country, city
+#shapes  = lines or polygons, for example political boundaries, road, building footprints, water bodies
+
+###Raster data#####
+#images(matrix of cell organized by rown and columns), for example, satellite imagery, climate, landcover, elevation
+###tigris:is used to call online/open databases
+```
+
+```{r Vector Data}
+#POLYGONS
+# download county shapefile for the state of colorado
+counties<-counties(state = "CO")
+counties
+
+#LINES
+roads<-roads(state = "CO", county = "Larimer")
+roads
+```
+
+```{r Tmap}
+#tmap is for quick and interactive maps (tmap_mode()), allows for statistic and interactive mapping option. After call tmap_mode("view") will produce a plot in the mode. 
+tmap_mode("view") # interactive view
+#qtm = themathic map
+#tm_shape: spatial layer , tm_polygons() to add layer to the map
+
+#Using qtm
+qtm(counties)+
+  qtm(roads)
+
+#Using tm_shape
+tm_shape(counties)+
+  tm_polygons()+
+  
+  tm_shape(roads)+
+  tm_lines()
+```
+
+```{r Exploring the only data}
+#tigris import data in SF(SIMPLE FEATURES), make easy to work with vector data and represent spatial feature as a : data.frame or tibble. Also with tidyverse.
+
+#Filter out the roads set to only those features. Using use investigative geography skills, find the highway on your map. Find out what the exact 'FULLNAME' attribute is. 
+poudre_hwy <- roads %>% 
+  filter(FULLNAME == "Poudre Canyon Hwy")
+
+qtm(poudre_hwy)
+
+```
+
+```{r Point-vector}
+#When we have spatial data is not EXPLICITY SPATIAL yet or not in the sf format, you use the st_as_sf()
+
+# Small data set of their coordinates
+
+poudre_points <- data.frame(name = c("Mishawaka", "Rustic", "Blue Lake Trailhead"),
+                            long = c(-105.35634, -105.58159, -105.85563),
+                            lat = c(40.68752, 40.69687, 40.57960))
+
+#The x = longitud always goes first
+#convert it into an sf object, specifying the longitud and latitude columns an the CSR (Coordinate Reference System)
+
+poudre_points_sf <- st_as_sf(poudre_points, coords = c("long", "lat"), crs = 4326)
+
+qtm(poudre_hwy)+
+  qtm(poudre_points_sf)
+
+```
+
+```{r Coordinate reference systems}
+#Coordinate reference system is the most important part when we are working with spatial data. 
+#All object need to be in the EXACT SAME COORDINATE REFERENCE SYSTEM.
+
+#See the CRS in the header metadata
+counties
+#Return just the CRS (more detailed)
+st_crs(counties) == st_crs(poudre_points_sf )
+
+#false
+#we need to tranform
+podre_point_prj<-st_transform(poudre_points_sf,st_crs(counties))
+
+#Now check that they match
+st_crs(podre_point_prj) == st_crs(counties)
+#true
+```
+
+```{r Raster data}
+#Elevatr package, and the function get_lec_raster() resturns a raster digital elevation model 
+#counties is an object
+#z , is used to specify the zoom level
+elevation<-get_elev_raster(counties, z=7)
+qtm(elevation)
+
+#Continous palette
+tm_shape(elevation)+
+  tm_raster(style = "cont", title = "Elevation (m)")
+elevation
+
+
+```
+
+
+```{r Terra}
+#used to work with raster data
+
+#if we try this we get an error
+elevation_crop<-crop(elevation,ext(poudre_hwy)) #Error in .local(x, y, ...) : Cannot get an Extent object from argument y
+
+#transform elevation to raster
+elevation_tran<-rast(elevation)
+names(elevation)<-"Elevation"
+
+#now we can use terra function
+elevation_crop<- crop(elevation_tran, ext(roads))
+tm_shape(elevation_crop)+
+  tm_raster(style = "cont")
+
+#a complete map
+
+tm_shape(elevation,bbox = st_bbox(poudre_hwy))+
+  tm_raster(style = "cont",title = "Elevation (m)")+
+  tm_shape(pouder_hwy)+
+  tm_lines()+
+  tm_shape(podre_point_prj)+
+  tm_dots(size = 0.2)
+
+```
+
+```{r Reading and writing spatial data}
+# To save vector data with sf, use write_sf()
+
+write_sf(poudre_hwy, "data/poudre_hwy.shp")
+write_sf(podre_point_prj, "data/poudre_points.shp")
+
+#to save raster data with terra use writeRaster()
+writeRaster(elevation_crop, "data/elevation_larimer.tif")
+
+
+```
+
+```{r  Rdata files}
+
+save(poudre_hwy, podre_point_prj, file = "data/spatial_objects.RData")
+load("data/spatial_objects.RData")
+
+# Note terra dont properly save to RData files, this is the worktempleate to save data
+
+saveRDS(elevation_crop, "data/elevation_crop.RDS")
+readRDS("data/elevation_crop.RDS")%>% rast()
+```
+
+```{r Reading spatial data}
+#to read in shapefile, tou use read_sf()
+
+read_sf("data/poudre_hwy.shp")
+
+#to read raster file you use rast()
+rast("data/elevation_larimer.tif")
+
+
+```
+
